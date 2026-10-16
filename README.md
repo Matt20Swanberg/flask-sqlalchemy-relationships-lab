@@ -1,223 +1,779 @@
-# Lab: Flask SQLAlchemy Relationships
+# Modeling Relationships in Flask-SQLAlchemy
 
-## Scenario
+## Overview
 
-You have just been hired as a junior backend engineer at a 
-growing event management company called EventWise. Their 
-current backend team built the database tables, but they 
-haven't fully set up relationships between models. They need 
-your help to define relationships between entities, populate 
-the database, and expose the relational data through API 
-endpoints.
+EventWise is a RESTful API developed using Flask, Flask-SQLAlchemy, and SQLite to manage conference events, sessions, speakers, and speaker biographies.
 
-In this lab, you’ll practice setting up one-to-one, one-to-many, 
-and many-to-many relationships inside a Flask-SQLAlchemy app — 
-and verify the relationships work by querying related records 
-in different ways.
+This project demonstrates how to establish and query relational database models using SQLAlchemy's Object-Relational Mapper (ORM).
 
-You'll follow the problem-solving steps you’ve learned:
+The application was developed as part of the Flask-SQLAlchemy Relationships Lab and focuses on implementing one-to-many, one-to-one, and many-to-many relationships.
 
-* Define the problem clearly.
-* Determine the design of models and relationships.
-* Develop and test models and endpoints.
-* Refine your code to ensure proper cascading and querying behaviors.
+The API provides endpoints for retrieving events, viewing their scheduled sessions, identifying speakers, and accessing speaker biographies.
 
+## Features
 
-## Tools & Resources
+- **Event Management:** Retrieve conference events and their associated sessions.
+- **Session Management:** Retrieve sessions associated with an event or speaker.
+- **Speaker Management:** Retrieve all speakers or individual speaker details.
+- **Speaker Biographies:** Access biographies through one-to-one relationships.
+- **Relational Database Models:** Implement one-to-many, one-to-one, and many-to-many relationships.
+- **Association Table:** Connect speakers and sessions using the `session_speakers` table.
+- **Association Proxy:** Access speaker names directly from session records.
+- **Cascading Deletes:** Automatically remove dependent sessions or biographies when their parent records are deleted.
+- **Database Seeding:** Populate the database with sample conference data.
+- **Reusable Helper Functions:** Reduce duplicated serialization logic across API endpoints.
+- **JSON Responses:** Return structured data for API consumers.
+- **Error Handling:** Return appropriate HTTP 404 responses for missing resources.
+- **Automated Testing:** Validate models, relationships, and API endpoints using Pytest.
 
-- [GitHub Repo](https://github.com/learn-co-curriculum/flask-sqlalchemy-relationships-lab)
-- [SQLAlchemy ORM Documentation: SQLAlchemy ORM](https://docs.sqlalchemy.org/en/14/orm/)
-- [Flask-SQLAlchemy Documentation: Flask-SQLAlchemy](https://flask-sqlalchemy.palletsprojects.com/)
+## Technologies Used
 
-## Set Up
+- Python
+- Flask
+- Flask-SQLAlchemy
+- SQLAlchemy ORM
+- SQLite
+- Flask-Migrate
+- Alembic
+- Pytest
+- Pipenv
 
-Fork and clone the lab repository.
+## Project Structure
 
-Run the following commands:
-
-```bash
-$ pipenv install
-$ pipenv shell
+```text
+flask-sqlalchemy-relationships-lab/
+├── server/
+│   ├── app.py
+│   ├── models.py
+│   ├── seed.py
+│   ├── instance/
+│   │   └── app.db
+│   ├── migrations/
+│   │   └── versions/
+│   └── testing/
+├── screenshots/
+│   ├── all_events.png
+│   ├── database_via_viewer.png
+│   ├── event_not_found.png
+│   ├── event_sessions.png
+│   ├── session_not_found.png
+│   ├── session_speakers.png
+│   ├── speaker_bio.png
+│   ├── speaker_details.png
+│   ├── speaker_not_found.png
+│   ├── speaker_sessions.png
+│   ├── speakers.png
+│   └── test_suite.png
+├── Pipfile
+├── Pipfile.lock
+├── .gitignore
+└── README.md
 ```
 
-Navigate into the server/ directory and set environment variables:
+**Note:** The SQLite database is generated locally. Database files should be excluded from version control using `.gitignore`.
+
+## Installation and Setup
+
+### 1. Clone the Repository
+
+Clone your GitHub repository:
 
 ```bash
-$ cd server
-$ export FLASK_APP=app.py
-$ export FLASK_RUN_PORT=5555
+git clone <https://github.com/Matt20Swanberg/flask-sqlalchemy-relationships-lab>
+cd flask-sqlalchemy-relationships-lab
 ```
 
-You will find:
-* `models.py` – already created but empty.
-* `seed.py` – contains starter seed data (you will run this later after models are built).
-* `testing/` – directory with test suites for models and endpoints to check your work.
-* `app.py` – Flask app setup ready for you to add endpoints.
+### 2. Install Dependencies
 
-## Instructions
-
-### Task 1: Define the Problem
-
-You have been provided with the following Entity-Relationship Diagram (ERD):
-
-![Entity-Relationship Diagram](/assets/erd.png)
-
-* Event `has many` Sessions
-* Session `belongs to` Event
-* Speaker `has one` Bio
-* Bio `belongs to` Speaker
-* Speaker `has many` Sessions `through` session_speakers
-* Session `has many` Speakers `through` session_speakers
-
-Summary of Relationships:
-* One-to-Many: Event ➡ Sessions
-* One-to-One: Speaker ➡ Bio
-* Many-to-Many: Session ↔ Speaker (through session_speakers association table)
-
-You need to design and implement these relationships using Flask-SQLAlchemy models.
-
-### Task 2: Determine the Design
-
-Model Requirements:
-
-| Model           | Attributes                                                             |
-|-----------------|-------------------------------------------------------------------------|
-| Event           | id (PK), name (String), location (String)                               |
-| Session         | id (PK), title (String), start_time (DateTime), event_id (FK to Event)   |
-| Speaker         | id (PK), name (String)                                                  |
-| Bio             | id (PK), bio_text (String), speaker_id (FK to Speaker)                  |
-
-Relationships:
-* Event: sessions relationship
-* Session: event relationship; speakers relationship (many-to-many)
-* Speaker: bio relationship; sessions relationship (many-to-many)
-
-Cascading:
-* If an `Event` is deleted, its `Sessions` should also be deleted.
-* If a `Speaker` is deleted, their `Bio` should be deleted.
-
-### Task 3: Develop, Test, and Refine the Code
-
-#### Step 1: Define Models and Relationships
-
-Update models.py to:
-* Define the association table.
-* Set up the correct ForeignKey, relationship, and back_populates where needed.
-
-__repr__ methods are included for each model that return readable summaries for each instance.
-
-#### Step 2: Create Database and Tables
-
-Run migrations after you define your models:
+Install the project's dependencies:
 
 ```bash
-$ flask db init
-$ flask db migrate -m "Create tables with relationships"
-$ flask db upgrade head
+pipenv install
 ```
 
-#### Step 3: Seed the Database
-
-Run the seed file:
+Activate the virtual environment:
 
 ```bash
-$ python seed.py
+pipenv shell
 ```
 
-Confirm in the database (or use the Flask shell) that seed data is correctly inserted.
+### 3. Configure Flask
 
-Run the test suite. You should be passing all models tests.
-
-#### Step 4:  Check Relationships by Querying Relationship Data
-
-Use the Flask shell to confirm relationships work:
-* Fetch all Sessions for a given Event.
-* Fetch the Bio for a given Speaker.
-* Fetch all Speakers for a Session.
-
-Example commands:
+Navigate into the server directory:
 
 ```bash
-Event.query.first()
-
-Speaker.query.first()
-
-Session.query.first()
+cd server
 ```
 
-#### Step 5: Add Flask Endpoints
-
-In app.py, build the following:
-
-###### Event Endpoints:
-* GET `/events`: Returns a list of all events. 
-    * Events should be formatted as a dictionary with id, name, and location.
-    * Include a `200` status.
-* GET `/events/<int:id>/sessions`: Returns all sessions as a list for a given event.
-    * Sessions should be formatted as a dictionary with id, title, and start_time (use `start_time.isoformat()`).
-    * Include a `200` status if event exists.
-    * If the event does not exist, return a message formatted as a dict `{"error": "Event not found"}` with status 404.
-
-##### Speaker Endpoints
-* GET `/speakers`: Returns a list of all speakers.
-    * Speakers should be formatted as a dictionary with id and name.
-    * Include a status of 200.
-* GET `/speakers/<int:id>`: Return a speaker with their bio.
-    * Speaker should be formatted as a dict with id, name, and bio_text.
-    * If the speaker doesn't have a bio, bio_text should be assigned to `"No bio available"`.
-    * Include a `200` status if speaker exists.
-    * If the speaker does not exist, return a message formatted as a dict `{"error": "Speaker not found"}` with status 404.
-
-##### Session Endpoints
-* GET `/sessions/<int:id>/speakers`: Returns a list of `Speakers` for a `Session`.
-    * Speakers should be formatted as a dictionary with id, name, and bio_text.
-    * If the speaker doesn't have a bio, bio_text should be assigned to `"No bio available"`.
-    * Include a `200` status if session exists.
-    * If the session does not exist, return a message formatted as a dict `{"error": "Session not found"}` with status 404.
-
-All responses should be JSON!
-
-#### Step 6: Verify and Test your Code
-
-Open your flask app and check the endpoints.
+Set the Flask environment variables:
 
 ```bash
-flask run
+export FLASK_APP=app.py
+export FLASK_RUN_PORT=5555
 ```
 
-Run the test suite to verify all 4 suites are passing.
+### 4. Apply Database Migrations
+
+Apply the existing database migrations:
 
 ```bash
-pytest
+flask db upgrade head
 ```
 
-All tests should now be passing.
+This creates or updates the database tables based on the migration history.
 
-#### Step 7: Commit and Push Git History
+**Note:** If the migrations directory already exists, running `flask db init` again is unnecessary.
 
-Once all tests are passing, push your final code to GitHub.
+### 5. Seed the Database
 
-If you used a feature branch, remember to merge your final code to main.
+Populate the database with sample conference records:
 
-### Task 4: Document and Maintain
+```bash
+python seed.py
+```
 
-Best Practice documentation steps:
-* Add comments to the code to explain purpose and logic, clarifying intent and functionality of your code to other developers.
-* Update README text to reflect the functionality of the application following https://makeareadme.com. 
-  * Add screenshot of completed work included in Markdown in README.
-* Delete any stale branches on GitHub
-* Remove unnecessary/commented out code
-* If needed, update git ignore to remove sensitive data
+The seed script creates:
 
-## Summary
+- 2 conference events
+- 3 conference sessions
+- 3 speakers
+- 3 speaker biographies
+- 4 speaker-to-session associations
 
-In this lab, you modeled and built one-to-one, one-to-many, and 
-many-to-many relationships using Flask-SQLAlchemy. You seeded 
-and queried relational data, added JSON-based endpoints, and 
-solidified best practices for backend database modeling.
+**Important:** Running `seed.py` removes existing application records before inserting the sample data.
 
-## Submission
+### 6. Start the Flask Server
 
-Once all tests are passing and your finalized code is pushed 
-to the main branch of your GitHub repo, submit your repo to
-CodeGrade through Canvas.
+Start the application:
+
+```bash
+flask run --port 5555 --debug
+```
+
+The API is available at:
+
+```text
+http://127.0.0.1:5555
+```
+
+## Database Models
+
+The application uses four primary SQLAlchemy models.
+
+### Event Model
+
+Represents a conference event.
+
+| Attribute | Data Type | Description |
+|---|---|---|
+| id | Integer | Unique primary key |
+| name | String | Conference name |
+| location | String | Conference location |
+| sessions | Relationship | Associated conference sessions |
+
+### Session Model
+
+Represents a scheduled conference session.
+
+| Attribute | Data Type | Description |
+|---|---|---|
+| id | Integer | Unique primary key |
+| title | String | Session title |
+| start_time | DateTime | Scheduled session start |
+| event_id | Integer | Foreign key referencing Event |
+| event | Relationship | Parent event |
+| speakers | Relationship | Associated speakers |
+| speaker_names | Association Proxy | Names of associated speakers |
+
+### Speaker Model
+
+Represents an individual conference speaker.
+
+| Attribute | Data Type | Description |
+|---|---|---|
+| id | Integer | Unique primary key |
+| name | String | Speaker name |
+| bio | Relationship | Associated biography |
+| sessions | Relationship | Sessions associated with the speaker |
+
+### Bio Model
+
+Represents a speaker biography.
+
+| Attribute | Data Type | Description |
+|---|---|---|
+| id | Integer | Unique primary key |
+| bio_text | Text | Speaker biography |
+| speaker_id | Integer | Unique foreign key referencing Speaker |
+| speaker | Relationship | Associated speaker |
+
+## SQLAlchemy Relationships
+
+### One-to-Many: Event and Session
+
+One event can contain multiple sessions, but each session belongs to one event.
+
+Implemented using:
+
+```python
+sessions = db.relationship(
+    'Session',
+    back_populates='event',
+    cascade='all, delete-orphan'
+)
+```
+
+Deleting an event also deletes its associated sessions.
+
+### One-to-One: Speaker and Bio
+
+Each speaker can have one biography, and each biography belongs to one speaker.
+
+Implemented using:
+
+```python
+bio = db.relationship(
+    'Bio',
+    uselist=False,
+    back_populates='speaker',
+    cascade='all, delete-orphan'
+)
+```
+
+The `uselist=False` argument establishes a scalar relationship, while the unique `speaker_id` foreign key prevents multiple biographies from referencing the same speaker.
+
+Deleting a speaker also deletes the associated biography.
+
+### Many-to-Many: Session and Speaker
+
+A session can have multiple speakers, and a speaker can participate in multiple sessions.
+
+This relationship uses the `session_speakers` association table.
+
+```python
+speakers = db.relationship(
+    'Speaker',
+    secondary=session_speakers,
+    back_populates='sessions'
+)
+```
+
+The association table contains:
+
+- `speaker_id`
+- `session_id`
+
+Both columns are part of a composite primary key, preventing duplicate speaker-session associations.
+
+### Association Proxy
+
+The Session model implements:
+
+```python
+speaker_names = association_proxy('speakers', 'name')
+```
+
+This allows the application to retrieve speaker names directly from a session:
+
+```python
+session.speaker_names
+```
+
+Rather than manually accessing each speaker's name through the relationship.
+
+## API Endpoints
+
+All API endpoints return JSON responses.
+
+### 1. Homepage
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/
+```
+
+Returns a welcome message confirming that the application is running.
+
+**Example Response:**
+
+```json
+{
+  "message": "Welcome to my lab"
+}
+```
+
+**HTTP Status:** `200 OK`
+
+### 2. Retrieve All Events
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/events
+```
+
+Retrieves all conference events, including their associated sessions.
+
+Each event contains its ID, name, location, and a list of sessions with their IDs and titles.
+
+**HTTP Status:** `200 OK`
+
+### 3. Retrieve Sessions for an Event
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/events/<int:id>/sessions
+```
+
+Retrieves all sessions associated with a specific event.
+
+**Example Request:**
+
+```text
+http://127.0.0.1:5555/events/1/sessions
+```
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": 1,
+    "title": "Building Scalable Web Apps",
+    "start_time": "2023-09-15T10:00:00"
+  },
+  {
+    "id": 2,
+    "title": "Intro to Machine Learning",
+    "start_time": "2023-09-15T14:00:00"
+  }
+]
+```
+
+**HTTP Status:** `200 OK`
+
+**Event Not Found:**
+
+```json
+{
+  "error": "Event not found"
+}
+```
+
+**HTTP Status:** `404 Not Found`
+
+### 4. Retrieve All Speakers
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/speakers
+```
+
+Retrieves all speakers, including their IDs and names.
+
+**Example Response:**
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Alex Johnson"
+  },
+  {
+    "id": 2,
+    "name": "Riley Chen"
+  },
+  {
+    "id": 3,
+    "name": "Jordan Brooks"
+  }
+]
+```
+
+**HTTP Status:** `200 OK`
+
+### 5. Retrieve Speaker Details
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/speakers/<int:id>
+```
+
+Retrieves a specific speaker and their biography.
+
+**Example Request:**
+
+```text
+http://127.0.0.1:5555/speakers/1
+```
+
+**Example Response:**
+
+```json
+{
+  "id": 1,
+  "name": "Alex Johnson",
+  "bio_text": "Expert in scalable backend systems with 10+ years of experience."
+}
+```
+
+If the speaker does not have a biography, the API returns:
+
+```json
+{
+  "id": 1,
+  "name": "Alex Johnson",
+  "bio_text": "No bio available"
+}
+```
+
+**HTTP Status:** `200 OK`
+
+**Speaker Not Found:**
+
+```json
+{
+  "error": "Speaker not found"
+}
+```
+
+**HTTP Status:** `404 Not Found`
+
+### 6. Retrieve Speakers for a Session
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/sessions/<int:id>/speakers
+```
+
+Retrieves all speakers associated with a specific session.
+
+Each speaker includes their ID, name, and biography text.
+
+**Example Request:**
+
+```text
+http://127.0.0.1:5555/sessions/2/speakers
+```
+
+**HTTP Status:** `200 OK`
+
+**Session Not Found:**
+
+```json
+{
+  "error": "Session not found"
+}
+```
+
+**HTTP Status:** `404 Not Found`
+
+### 7. Retrieve Speaker Biography
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/speakers/<int:id>/bio
+```
+
+Retrieves the biography associated with a specific speaker.
+
+**Example Request:**
+
+```text
+http://127.0.0.1:5555/speakers/1/bio
+```
+
+**Example Response:**
+
+```json
+{
+  "id": 1,
+  "bio_text": "Expert in scalable backend systems with 10+ years of experience.",
+  "speaker_id": 1
+}
+```
+
+**HTTP Status:** `200 OK`
+
+Returns `404 Not Found` if the speaker or biography does not exist.
+
+### 8. Retrieve Sessions for a Speaker
+
+**Method:** `GET`
+
+**Endpoint:**
+
+```text
+/speakers/<int:id>/sessions
+```
+
+Retrieves all sessions associated with a specific speaker.
+
+Each session contains its ID and title.
+
+**Example Request:**
+
+```text
+http://127.0.0.1:5555/speakers/2/sessions
+```
+
+**HTTP Status:** `200 OK`
+
+Returns `404 Not Found` if the speaker does not exist.
+
+## Reusable Serialization Helper Functions
+
+To reduce duplicated code, the application uses reusable helper functions to convert SQLAlchemy model instances into dictionaries.
+
+### serialize_session()
+
+Converts a Session instance into a dictionary.
+
+```python
+serialize_session(session, include_start_time=False)
+```
+
+By default, returns:
+
+- Session ID
+- Session title
+
+When `include_start_time=True`, also includes the session's ISO-formatted start time.
+
+### serialize_speaker()
+
+Converts a Speaker instance into a dictionary.
+
+```python
+serialize_speaker(speaker, include_bio=False)
+```
+
+By default, returns:
+
+- Speaker ID
+- Speaker name
+
+When `include_bio=True`, also includes biography text.
+
+These helpers promote the **DRY (Don't Repeat Yourself)** principle by centralizing repeated serialization logic.
+
+## Database Seeding
+
+The `seed.py` script creates sample data to demonstrate each database relationship.
+
+### Sample Events
+
+| Event | Location |
+|---|---|
+| Tech Future Conference | New York |
+| AI World Summit | San Francisco |
+
+### Sample Sessions
+
+| Session | Event |
+|---|---|
+| Building Scalable Web Apps | Tech Future Conference |
+| Intro to Machine Learning | Tech Future Conference |
+| The Future of AI Ethics | AI World Summit |
+
+### Sample Speakers
+
+| Speaker | Assigned Sessions |
+|---|---|
+| Alex Johnson | Building Scalable Web Apps |
+| Riley Chen | Intro to Machine Learning, The Future of AI Ethics |
+| Jordan Brooks | Intro to Machine Learning |
+
+Each speaker also receives a biography record.
+
+## Testing
+
+The project uses Pytest to validate database models, relationships, and API endpoints.
+
+### Run All Tests
+
+From the `server` directory:
+
+```bash
+pytest -v
+```
+
+### Stop at the First Failure
+
+```bash
+pytest -v -x
+```
+
+The `-v` flag displays individual test results, while `-x` stops execution after the first failure.
+
+Tests verify functionality such as:
+
+- Database model definitions
+- One-to-many relationships
+- One-to-one relationships
+- Many-to-many relationships
+- Cascading deletes
+- Event retrieval
+- Session retrieval
+- Speaker retrieval
+- Biography retrieval
+- JSON response structures
+- HTTP status codes
+- Missing-resource error handling
+
+## Screenshots
+
+The following screenshots demonstrate the database structure, API endpoints, error handling, and automated testing.
+
+All screenshots are stored in the root-level `screenshots/` directory.
+
+### Database Verification
+
+#### SQLite Database Viewer
+
+Displays the application's database tables and relational data.
+
+![SQLite Database Viewer](screenshots/database_via_viewer.png)
+
+### Event Endpoints
+
+#### Retrieve All Events
+
+Demonstrates the `/events` endpoint, including nested session information.
+
+![All Events](screenshots/all_events.png)
+
+#### Retrieve Event Sessions
+
+Demonstrates retrieving all sessions associated with a specific event.
+
+![Event Sessions](screenshots/event_sessions.png)
+
+#### Event Not Found
+
+Demonstrates the HTTP 404 response when the requested event does not exist.
+
+![Event Not Found](screenshots/event_not_found.png)
+
+### Session Endpoints
+
+#### Retrieve Session Speakers
+
+Demonstrates retrieving all speakers associated with a session.
+
+![Session Speakers](screenshots/session_speakers.png)
+
+#### Session Not Found
+
+Demonstrates the HTTP 404 response for an invalid session ID.
+
+![Session Not Found](screenshots/session_not_found.png)
+
+### Speaker Endpoints
+
+#### Retrieve All Speakers
+
+Demonstrates retrieving all speakers from the database.
+
+![All Speakers](screenshots/speakers.png)
+
+#### Retrieve Speaker Details
+
+Demonstrates retrieving an individual speaker and their biography.
+
+![Speaker Details](screenshots/speaker_details.png)
+
+#### Retrieve Speaker Biography
+
+Demonstrates accessing a speaker's biography through the one-to-one relationship.
+
+![Speaker Biography](screenshots/speaker_bio.png)
+
+#### Retrieve Speaker Sessions
+
+Demonstrates retrieving all sessions associated with a speaker.
+
+![Speaker Sessions](screenshots/speaker_sessions.png)
+
+#### Speaker Not Found
+
+Demonstrates the HTTP 404 response for an invalid speaker ID.
+
+![Speaker Not Found](screenshots/speaker_not_found.png)
+
+### Automated Testing
+
+#### Pytest Test Suite
+
+Displays the results of the automated test suite.
+
+![Pytest Test Suite](screenshots/test_suite.png)
+
+## Error Handling
+
+The API returns appropriate HTTP status codes for successful and unsuccessful requests.
+
+| Status Code | Description |
+|---|---|
+| 200 OK | Request completed successfully |
+| 404 Not Found | Requested event, session, speaker, or biography does not exist |
+
+Error responses use JSON dictionaries containing descriptive error messages.
+
+## Database Migrations
+
+Flask-Migrate and Alembic manage database schema changes.
+
+### Generate a New Migration
+
+After modifying database models:
+
+```bash
+flask db migrate -m "Description of changes"
+```
+
+### Apply Migrations
+
+```bash
+flask db upgrade head
+```
+
+### View Current Migration
+
+```bash
+flask db current
+```
+
+Migration files are stored in:
+
+```text
+server/migrations/versions/
+```
+
+This allows database schema changes to be tracked through version control.
+
+
+
+## Author
+
+Created by Matthew Swanberg as part of Course 9 Module 5 (Modeling Relationships in Flask-SQLAlchemy)
